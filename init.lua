@@ -15,7 +15,25 @@ vim.g.clipboard = false
 vim.opt.mouse = 'a'
 -- Don't show the mode, since it's already in the status line
 vim.opt.showmode = false
-
+-- status line modes
+function MyMode()
+  local modes = {
+    n = '---- NORMAL ----',
+    i = '---- INSERT ----',
+    v = '---- VISUAL ----',
+    V = '---- V-LINE ----',
+    ['\22'] = '---- V-BLOCK ----',
+    R = '---- REPLACE ----',
+    t = '---- TERMINAL ----',
+  }
+  local current_mode = vim.fn.mode()
+  vim.cmd('echo"' .. (modes[current_mode] or '----- UNKNOWN ----') .. '"')
+end
+vim.api.nvim_create_autocmd({ 'VimEnter', 'InsertEnter', 'InsertLeave', 'CmdlineEnter', 'CmdlineLeave', 'ModeChanged' }, {
+  callback = MyMode,
+})
+vim.cmd [[ highlight StatusLine guibg=#EAB8E4 guifg=#4B0082 ]]
+vim.opt.statusline = '   %f %y %m %=%l:%c / %L   '
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
@@ -92,6 +110,10 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 vim.keymap.set('n', '<leader>ee', 'oif err != nil {<CR>}Oreturn err<Esc>')
+vim.keymap.set('n', '<leader>.', ':norm A.<CR>', { desc = 'Append a period to the end of the current line' })
+vim.keymap.set('n', '<leader>,', ':s/\\vs*(,\\s*)*$/,/<CR>:nohl<CR>', { desc = 'Append a period to the end of the current line' })
+vim.keymap.set('n', '<leader>;', ':s/\\vs*(;\\s*)*$/;/<CR>:nohl<CR>', { desc = 'Append a semicolon to the end of the current line' })
+vim.keymap.set('n', '<leader>x', ':s/.\\{1}$//<CR>:nohl<CR>', { desc = 'Delete the last character of the current line' })
 
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
@@ -107,6 +129,8 @@ vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+vim.keymap.set('n', 'j', 'gj', { desc = 'Move through wrapped lines without skipping' })
+vim.keymap.set('n', 'k', 'gk', { desc = 'Move through wrapped lines without skipping' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -209,36 +233,16 @@ require('lazy').setup({
   {
     'ThePrimeagen/harpoon',
     branch = 'harpoon2',
-    dependencies = { 'nvim-lua/plenary.nvim', 'nvim-telescope/telescope.nvim' },
+    dependencies = { 'nvim-lua/plenary.nvim' },
     config = function()
       local harpoon = require 'harpoon'
       harpoon:setup()
-
-      -- basic telescope config
-      local conf = require('telescope.config').values
-      local function toggle_telescope(harpoon_files)
-        local file_paths = {}
-        for _, item in ipairs(harpoon_files.items) do
-          table.insert(file_paths, item.value)
-        end
-
-        require('telescope.pickers')
-          .new({}, {
-            prompt_title = 'Harpoon',
-            finder = require('telescope.finders').new_table {
-              results = file_paths,
-            },
-            previewer = conf.file_previwer {},
-            sorter = conf.generic_sorter {},
-          })
-          :find()
-      end
 
       vim.keymap.set('n', '<leader>a', function()
         harpoon:list():add()
       end)
       vim.keymap.set('n', '<C-e>', function()
-        toggle_telescope(harpoon:list())
+        harpoon.ui:toggle_quick_menu(harpoon:list())
       end, { desc = 'Open harpoon window' })
 
       vim.keymap.set('n', '<C-w>', function()
@@ -259,7 +263,6 @@ require('lazy').setup({
     end,
   },
   -- NOTE: Plugins can specify dependencies.
-  --
   -- The dependencies are proper plugin specifications as well - anything
   -- you do for a plugin at the top level, you can do for a dependency.
   --
@@ -399,7 +402,7 @@ require('lazy').setup({
 
           -- Jump to the implementation of the word under your cursor.
           --  Useful when your language has ways of declaring types without an actual implementation.
-          map('gI', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
+          map('gi', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
 
           -- Jump to the type of the word under your cursor.
           --  Useful when you're not sure what type a variable is and you want to see
@@ -424,8 +427,6 @@ require('lazy').setup({
 
           map('K', vim.lsp.buf.hover, 'Hover over documentation')
 
-          -- WARN: This is not Goto Definition, this is Goto Declaration.
-          --  For example, in C this would take you to the header.
           map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
           -- The following two autocommands are used to highlight references of the
@@ -461,11 +462,11 @@ require('lazy').setup({
           -- code, if the language server you are using supports them
           --
           -- This may be unwanted, since they displace some of your code
-          if client and client.supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint) then
-            map('<leader>th', function()
-              vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf })
-            end, '[T]oggle Inlay [H]ints')
-          end
+          -- if client and client.supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint) then
+          --   map('<leader>th', function()
+          --     vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf })
+          --   end, '[T]oggle Inlay [H]ints')
+          -- end
         end,
       })
 
@@ -698,27 +699,23 @@ require('lazy').setup({
     end,
   },
 
-  { -- You can easily change to a different colorscheme.
+  {
+    -- You can easily change to a different colorscheme.
     -- Change the name of the colorscheme plugin below, and then
     -- change the command in the config to whatever the name of that colorscheme is.
-    --
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-    'folke/tokyonight.nvim',
+    'catppuccin/nvim',
+    name = 'catppuccin-mocha',
     priority = 1000, -- Make sure to load this before all the other start plugins.
     init = function()
       -- Load the colorscheme here.
       -- Like many other themes, this one has different styles, and you could load
       -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-night'
-
-      -- You can configure highlights by doing something like:
-      vim.cmd.hi 'Comment gui=none'
+      vim.cmd.colorscheme 'catppuccin-mocha'
+      --     -- You can configure highlights by doing something like:
+      --     vim.cmd.hi 'Comment gui=none'
     end,
   },
-
-  -- Highlight todo, notes, etc in comments
-
-  { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
 
   { -- Collection of various small independent plugins/modules
     'echasnovski/mini.nvim',
@@ -737,22 +734,6 @@ require('lazy').setup({
       -- - sd'   - [S]urround [D]elete [']quotes
       -- - sr)'  - [S]urround [R]eplace [)] [']
       require('mini.surround').setup()
-
-      -- Simple and easy statusline.
-      --  You could remove this setup call if you don't like it,
-      --  and try some other statusline plugin
-      local statusline = require 'mini.statusline'
-      -- set use_icons to true if you have a Nerd Font
-      statusline.setup { use_icons = vim.g.have_nerd_font }
-
-      -- You can configure sections in the statusline by overriding their
-      -- default behavior. For example, here we set the section for
-      -- cursor location to LINE:COLUMN
-      ---@diagnostic disable-next-line: duplicate-set-field
-      statusline.section_location = function()
-        return '%2l:%-2v'
-      end
-
       -- ... and there is more!
       --  Check out: https://github.com/echasnovski/mini.nvim
     end,
@@ -789,25 +770,25 @@ require('lazy').setup({
   --    For additional information, see `:help lazy.nvim-lazy.nvim-structuring-your-plugins`
   { import = 'custom.plugins' },
 }, {
-  ui = {
-    -- If you are using a Nerd Font: set icons to an empty table which will use the
-    -- default lazy.nvim defined Nerd Font icons, otherwise define a unicode icons table
-    icons = vim.g.have_nerd_font and {} or {
-      cmd = '⌘',
-      config = '🛠',
-      event = '📅',
-      ft = '📂',
-      init = '⚙',
-      keys = '🗝',
-      plugin = '🔌',
-      runtime = '💻',
-      require = '🌙',
-      source = '📄',
-      start = '🚀',
-      task = '📌',
-      lazy = '💤 ',
-    },
-  },
+  -- ui = {
+  --   -- If you are using a Nerd Font: set icons to an empty table which will use the
+  --   -- default lazy.nvim defined Nerd Font icons, otherwise define a unicode icons table
+  --   icons = vim.g.have_nerd_font and {} or {
+  --     cmd = '⌘',
+  --     config = '🛠',
+  --     event = '📅',
+  --     ft = '📂',
+  --     init = '⚙',
+  --     keys = '🗝',
+  --     plugin = '🔌',
+  --     runtime = '💻',
+  --     require = '🌙',
+  --     source = '📄',
+  --     start = '🚀',
+  --     task = '📌',
+  --     lazy = '💤 ',
+  -- --   },
+  -- },
 })
 
 --The line beneath this is called `modeline`. See `:help modeline`
