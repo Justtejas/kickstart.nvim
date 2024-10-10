@@ -5,7 +5,9 @@ vim.g.maplocalleader = ' '
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
-vim.g.have_nerd_font = true
+-- vim.g.have_nerd_font = true
+
+vim.opt.termguicolors = true -- enables 24-bit RGB color for terminal
 
 -- Make line numbers default
 vim.opt.relativenumber = true
@@ -14,24 +16,24 @@ vim.g.clipboard = false
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
 -- Don't show the mode, since it's already in the status line
-vim.opt.showmode = false
+vim.opt.showmode = true
 -- status line modes
-function MyMode()
-  local modes = {
-    n = '---- NORMAL ----',
-    i = '---- INSERT ----',
-    v = '---- VISUAL ----',
-    V = '---- V-LINE ----',
-    ['\22'] = '---- V-BLOCK ----',
-    R = '---- REPLACE ----',
-    t = '---- TERMINAL ----',
-  }
-  local current_mode = vim.fn.mode()
-  vim.cmd('echo"' .. (modes[current_mode] or '----- UNKNOWN ----') .. '"')
-end
-vim.api.nvim_create_autocmd({ 'VimEnter', 'InsertEnter', 'InsertLeave', 'CmdlineEnter', 'CmdlineLeave', 'ModeChanged' }, {
-  callback = MyMode,
-})
+-- function MyMode()
+--   local modes = {
+--     n = '---- NORMAL ----',
+--     i = '---- INSERT ----',
+--     v = '---- VISUAL ----',
+--     V = '---- V-LINE ----',
+--     ['\22'] = '---- V-BLOCK ----',
+--     R = '---- REPLACE ----',
+--     t = '---- TERMINAL ----',
+--   }
+--   local current_mode = vim.fn.mode()
+--   vim.cmd('echo"' .. (modes[current_mode] or '----- UNKNOWN ----') .. '"')
+-- end
+-- vim.api.nvim_create_autocmd({ 'VimEnter', 'InsertEnter', 'InsertLeave', 'CmdlineEnter', 'CmdlineLeave', 'ModeChanged' }, {
+--   callback = MyMode,
+-- })
 vim.cmd [[ highlight StatusLine guibg=#EAB8E4 guifg=#4B0082 ]]
 vim.opt.statusline = '   %f %y %m %=%l:%c / %L   '
 -- Sync clipboard between OS and Neovim.
@@ -114,6 +116,8 @@ vim.keymap.set('n', '<leader>.', ':norm A.<CR>', { desc = 'Append a period to th
 vim.keymap.set('n', '<leader>,', ':s/\\vs*(,\\s*)*$/,/<CR>:nohl<CR>', { desc = 'Append a period to the end of the current line' })
 vim.keymap.set('n', '<leader>;', ':s/\\vs*(;\\s*)*$/;/<CR>:nohl<CR>', { desc = 'Append a semicolon to the end of the current line' })
 vim.keymap.set('n', '<leader>x', ':s/.\\{1}$//<CR>:nohl<CR>', { desc = 'Delete the last character of the current line' })
+vim.keymap.set('n', '<leader>pv', ':bprev<CR>', { desc = 'Go to previous buffer' })
+vim.keymap.set('n', '<leader>nk', ':bnext<CR>', { desc = 'Go to next buffer' })
 
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
